@@ -1,12 +1,13 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db/database');
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1] || req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = db.prepare('SELECT id, name, email, role, active FROM users WHERE id = ?').get(decoded.id);
+    const { rows } = await db.execute({ sql: 'SELECT id,name,email,role,active FROM users WHERE id=?', args: [decoded.id] });
+    const user = rows[0];
     if (!user || !user.active) return res.status(401).json({ error: 'Unauthorized' });
     req.user = user;
     next();
@@ -23,10 +24,7 @@ const requireRole = (...roles) => (req, res, next) => {
 const auditLog = (action, tableName) => (req, res, next) => {
   res.on('finish', () => {
     if (res.statusCode < 400 && req.user) {
-      try {
-        db.prepare('INSERT INTO audit_logs (user_id, action, table_name, record_id, details, ip_address) VALUES (?,?,?,?,?,?)')
-          .run(req.user.id, action, tableName, req.params.id || null, JSON.stringify({ body: req.body }), req.ip);
-      } catch {}
+      db.execute({ sql: 'INSERT INTO audit_logs (user_id,action,table_name,record_id,details,ip_address) VALUES (?,?,?,?,?,?)', args: [req.user.id, action, tableName, req.params.id || null, JSON.stringify({ body: req.body }), req.ip] }).catch(() => {});
     }
   });
   next();
