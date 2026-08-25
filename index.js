@@ -33,4 +33,8 @@ app.get('/admin/*splat', (req, res) => res.sendFile(path.join(__dirname, 'admin'
 app.get('/*splat', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`RKS Dental Clinic running on http://localhost:${PORT}`));
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`RKS Dental Clinic running on http://localhost:${PORT}`));
+}
+
+module.exports = app;
